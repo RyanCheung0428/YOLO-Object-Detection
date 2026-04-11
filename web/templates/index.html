@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>YOLOv8 Fruit Detector</title>
+    <style>
+        :root {
+            --bg: #f5efe4;
+            --panel: #fffaf1;
+            --ink: #1e1e1e;
+            --accent: #d96c06;
+            --accent-dark: #9e4e04;
+            --border: #e7d8be;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background:
+                radial-gradient(circle at top left, #fff1cf 0%, transparent 28%),
+                linear-gradient(135deg, #f8f1e6 0%, #efe1c5 100%);
+            color: var(--ink);
+        }
+
+        .page {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 32px 20px 56px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 18px 50px rgba(70, 40, 10, 0.08);
+        }
+
+        h1, h2 { margin-top: 0; }
+
+        p { line-height: 1.6; }
+
+        form {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        input[type="file"] {
+            flex: 1 1 280px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            background: var(--accent);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        button:hover { background: var(--accent-dark); }
+
+        .error {
+            margin-top: 16px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #ffe2df;
+            color: #8c241d;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(70, 40, 10, 0.06);
+        }
+
+        .card img {
+            width: 100%;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+
+        .meta {
+            margin: 10px 0 0;
+            color: #5b5347;
+            font-size: 0.95rem;
+        }
+
+        ul {
+            margin: 12px 0 0;
+            padding-left: 18px;
+        }
+
+        .empty {
+            margin-top: 24px;
+            color: #5b5347;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="panel">
+            <h1>YOLOv8 Fruit Detector</h1>
+            <p>Upload one or more images and the trained YOLOv8 model will detect fruit classes and bounding boxes for each file.</p>
+
+            <form method="post" enctype="multipart/form-data">
+                <input type="file" name="images" accept=".jpg,.jpeg,.png,.bmp,.webp" multiple>
+                <button type="submit">Run Detection</button>
+            </form>
+
+            {% if error %}
+            <div class="error">{{ error }}</div>
+            {% endif %}
+
+            {% if results %}
+            <div class="results">
+                {% for item in results %}
+                <section class="card">
+                    <h2>{{ item.original_name }}</h2>
+                    {% if item.image_url %}
+                    <img src="{{ item.image_url }}" alt="Prediction result">
+                    {% endif %}
+                    
+                    {% if item.detections %}
+                    <ul>
+                        {% for detection in item.detections %}
+                        <li>{{ detection.class_name }} | confidence={{ detection.confidence }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="meta">No objects detected.</p>
+                    {% endif %}
+                </section>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty">No results yet. Choose one or more images and submit the form.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

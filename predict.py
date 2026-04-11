@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from yolo_utils import find_best_weights, run_predictions
+from web.yolo_utils import find_best_weights, run_predictions
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 

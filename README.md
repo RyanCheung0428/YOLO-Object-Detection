@@ -23,3 +23,24 @@ python train.py --dataset dataset2
 # 圖片推論:
 python predict.py --image test_image/your_image.jpg
 ```
+
+啟動網頁介面:
+
+```bash
+python app.py
+```
+
+## 專案目錄
+
+```text
+web/
+	app.py
+	yolo_utils.py
+	templates/
+		index.html
+
+train.py        # 訓練入口
+predict.py      # 推論入口
+app.py          # 相容入口（轉發到 web/app.py）
+yolo_utils.py   # 相容匯出（轉發到 web/yolo_utils.py）
+```

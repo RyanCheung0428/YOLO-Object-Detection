@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from yolo_utils import (
+from web.yolo_utils import (
     get_training_device,
     load_yolo,
     prepare_data_yaml,
