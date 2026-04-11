@@ -1,0 +1,14 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+venv/
+
+# Project-specific large/non-source paths
+reference/
+*dataset*/
+*.zip
