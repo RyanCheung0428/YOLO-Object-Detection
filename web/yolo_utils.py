@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import yaml
 
@@ -144,9 +144,24 @@ def _build_output_path(output_dir: Path | str, image_path: Path, index: int) -> 
     return resolved_dir / f"{image_path.stem}_{index:02d}_{unique}{suffix}"
 
 
-def _predict_one(model, image_path: Path, conf: float) -> tuple[list[dict[str, Any]], Any]:
+def _predict_one(
+    model,
+    image_path: Path,
+    conf: float,
+    imgsz: int | None,
+    iou: float,
+) -> tuple[list[dict[str, Any]], Any]:
     # Keep per-image prediction logic isolated for reuse in batch and single-image flows.
-    results = model.predict(source=str(image_path), save=False, conf=conf)
+    predict_kwargs: dict[str, Any] = {
+        "source": str(image_path),
+        "save": False,
+        "conf": conf,
+        "iou": iou,
+    }
+    if imgsz is not None:
+        predict_kwargs["imgsz"] = imgsz
+
+    results = model.predict(**predict_kwargs)
     result = results[0]
 
     detections: list[dict[str, Any]] = []
@@ -165,10 +180,12 @@ def _predict_one(model, image_path: Path, conf: float) -> tuple[list[dict[str, A
 
 
 def run_predictions(
-    image_paths: list[Path | str],
+    image_paths: Sequence[Path | str],
     weights_path: Path | None = None,
     output_dir: Path | str | None = None,
-    conf: float = 0.25,
+    conf: float = 0.1,
+    imgsz: int | None = None,
+    iou: float = 0.7,
 ) -> list[dict[str, Any]]:
     # Main inference entrypoint used by both CLI and web UI.
     YOLO = load_yolo()
@@ -185,7 +202,7 @@ def run_predictions(
         if not resolved_image.exists():
             raise FileNotFoundError(f"Image not found: {resolved_image}")
 
-        detections, result = _predict_one(model, resolved_image, conf)
+        detections, result = _predict_one(model, resolved_image, conf, imgsz, iou)
         saved_path = None
         if output_dir is not None:
             saved_path = save_prediction_image(
@@ -209,7 +226,9 @@ def run_prediction(
     image_path: Path,
     weights_path: Path | None = None,
     output_path: Path | None = None,
-    conf: float = 0.25,
+    conf: float = 0.1,
+    imgsz: int | None = None,
+    iou: float = 0.7,
 ) -> tuple[list[dict[str, Any]], Path | None]:
     # Backward-compatible single-image helper built on top of batch predictions.
     batch_results = run_predictions(
@@ -217,5 +236,7 @@ def run_prediction(
         weights_path=weights_path,
         output_dir=output_path,
         conf=conf,
+        imgsz=imgsz,
+        iou=iou,
     )[0]
     return batch_results["detections"], batch_results["saved_path"]

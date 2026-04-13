@@ -17,14 +17,28 @@ pip install -r requirements.txt
 ## 使用方式
 
 ```bash
-# 切換資料集（例如 dataset2）:
-python train.py --dataset dataset2
+# 切換資料集（例如 dataset_fruit262）:
+python train.py --dataset dataset_fruit-detector
 
 # 圖片推論:
 python predict.py --image test_image/your_image.jpg
 ```
 
-啟動網頁介面:
+## 資料集準備
+
+如果原始資料是「每個類別一個資料夾」的結構，可先轉成 YOLO detection 格式，並產生 `train/valid/test` 與 `data.yaml`。
+
+```bash
+# 使用預設來源與輸出路徑
+python tools/prepare_detection_dataset.py
+
+# 明確指定來源與輸出
+python tools/prepare_detection_dataset.py --source-dir dataset-Fruits-262/Fruit-262 --output-dir dataset_fruit262
+```
+
+預設會自動嘗試找到常見來源資料夾，例如 `dataset-Fruits-262/Fruit-262`。
+
+## 啟動網頁介面:
 
 ```bash
 python app.py

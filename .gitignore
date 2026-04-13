@@ -8,7 +8,14 @@ __pycache__/
 .venv
 venv/
 
+runs/
+logs/
+
 # Project-specific large/non-source paths
 reference/
 *dataset*/
+web/results/
+web/uploads/
 *.zip
+*yolo*
+*.pt

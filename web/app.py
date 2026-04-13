@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
+from typing import Any
 
 from flask import Flask, render_template, request, url_for
 from werkzeug.utils import secure_filename
@@ -15,6 +16,7 @@ app = Flask(__name__, template_folder=str(TEMPLATE_DIR))
 UPLOAD_DIR = PROJECT_ROOT / "web" / "uploads"
 RESULT_DIR = PROJECT_ROOT / "web" / "results"
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+INFERENCE_IMAGE_SIZE = 896
 
 
 def allowed_file(filename: str) -> bool:
@@ -31,7 +33,7 @@ def ensure_dirs() -> None:
 @app.route("/", methods=["GET", "POST"])
 def index():
     error = None
-    results = []
+    results: list[dict[str, Any]] = []
     weights_path = None
 
     if request.method == "POST":
@@ -42,22 +44,27 @@ def index():
         if not files:
             error = "Please choose at least one image."
         else:
-            invalid_files = [file.filename for file in files if not allowed_file(file.filename)]
+            invalid_files = [
+                (file.filename or "")
+                for file in files
+                if not allowed_file(file.filename or "")
+            ]
             if invalid_files:
                 error = "Only jpg, jpeg, png, bmp, and webp files are supported."
             else:
-                upload_paths = []
-                uploaded_meta = []
+                upload_paths: list[Path] = []
+                uploaded_meta: list[dict[str, str]] = []
                 for file in files:
                     # Use secure + unique names to avoid collisions and path injection issues.
-                    safe_name = secure_filename(file.filename)
+                    raw_name = file.filename or ""
+                    safe_name = secure_filename(raw_name)
                     unique_name = f"{uuid.uuid4().hex}_{safe_name}"
                     upload_path = UPLOAD_DIR / unique_name
                     file.save(upload_path)
                     upload_paths.append(upload_path)
                     uploaded_meta.append(
                         {
-                            "original_name": file.filename,
+                            "original_name": raw_name,
                             "safe_name": safe_name,
                         }
                     )
@@ -69,6 +76,7 @@ def index():
                         image_paths=upload_paths,
                         weights_path=weights_path,
                         output_dir=RESULT_DIR,
+                        imgsz=INFERENCE_IMAGE_SIZE,
                     )
                     for meta, prediction in zip(uploaded_meta, batch_predictions):
                         saved_path = prediction.get("saved_path")

@@ -98,6 +98,35 @@ def write_data_yaml(dataset_dir: Path, class_dirs: list[Path]) -> None:
     data_yaml.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def resolve_source_dir(project_root: Path, source_arg: str) -> Path:
+    """Resolve source path and auto-detect common dataset folders for default input."""
+    source_dir = Path(source_arg)
+    if source_dir.is_absolute():
+        return source_dir
+
+    candidate = (project_root / source_dir).resolve()
+    if candidate.exists():
+        # For default mode, ignore stale output folders that only contain split dirs.
+        if source_arg != "dataset" or list_classes(candidate):
+            return candidate
+
+    if source_arg != "dataset":
+        return candidate
+
+    # Backward-compatible auto-detection for common repository layouts.
+    fallback_candidates = [
+        project_root / "dataset-Fruits-262" / "Fruit-262",
+        project_root / "dataset" / "Fruit-262",
+        project_root / "dataset",
+    ]
+    for path in fallback_candidates:
+        resolved = path.resolve()
+        if resolved.exists():
+            return resolved
+
+    return candidate
+
+
 def main() -> None:
     # Keep CLI logic minimal; heavy lifting stays in helper functions above.
     parser = argparse.ArgumentParser(
@@ -108,12 +137,12 @@ def main() -> None:
         default="dataset",
         help=(
             "Folder that directly contains class subfolders. "
-            "Example: dataset/Fruit-262"
+            "Example: dataset-Fruits-262/Fruit-262"
         ),
     )
     parser.add_argument(
         "--output-dir",
-        default="dataset",
+        default="dataset_fruit262",
         help=(
             "Prepared output folder for train/valid/test and data.yaml. "
             "Example: dataset_fruit262"
@@ -122,9 +151,7 @@ def main() -> None:
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parents[1]
-    source_dir = Path(args.source_dir)
-    if not source_dir.is_absolute():
-        source_dir = (project_root / source_dir).resolve()
+    source_dir = resolve_source_dir(project_root, args.source_dir)
 
     output_dir = Path(args.output_dir)
     if not output_dir.is_absolute():

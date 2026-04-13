@@ -35,6 +35,18 @@ def parse_args() -> argparse.Namespace:
         default=0.25,
         help="Confidence threshold for detection.",
     )
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=896,
+        help="Inference image size. Use the same size as training for best recall.",
+    )
+    parser.add_argument(
+        "--iou",
+        type=float,
+        default=0.7,
+        help="NMS IoU threshold for filtering overlapping detections.",
+    )
     return parser.parse_args()
 
 
@@ -60,6 +72,8 @@ def main() -> None:
         weights_path=weights_path,
         output_dir=output_dir,
         conf=args.conf,
+        imgsz=args.imgsz,
+        iou=args.iou,
     )
 
     for item in predictions:

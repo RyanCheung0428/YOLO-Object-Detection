@@ -14,13 +14,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 # Default training configuration used by CLI unless overridden.
 DEFAULT_DATASET_NAME = "dataset"
 DEFAULT_DATA_YAML_NAME = "data.yaml"
-DEFAULT_MODEL = "yolo11x.pt"
-EPOCHS = 100
-IMAGE_SIZE = 768
-BATCH_SIZE = 8
-WORKERS = 2
-CACHE_MODE = "disk"
-RUN_NAME = "runs/fruit_detector"
+DEFAULT_MODEL = "yolo11m.pt"
+EPOCHS = 300
+IMAGE_SIZE = 896
+BATCH_SIZE = 12
+WORKERS = 12
+PATIENCE = 50
+CACHE_MODE = "disk"  # Options: 'ram', 'disk', False
+RUN_NAME = "runs/fruit_detector_v2"
 
 
 def parse_args() -> argparse.Namespace:
@@ -100,6 +101,7 @@ def train_and_validate(data_yaml: Path, model_source: str) -> tuple[Path, Path]:
         device=device,
         workers=WORKERS,
         cache=CACHE_MODE,
+        patience=PATIENCE,
     )
     print("Training completed.")
 
