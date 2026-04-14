@@ -1,117 +1,128 @@
 from __future__ import annotations
 
-import uuid
+import tempfile
 from pathlib import Path
-from typing import Any
 
-from flask import Flask, render_template, request, url_for
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from werkzeug.utils import secure_filename
 
-from web.yolo_utils import find_best_weights, run_predictions
+from .yolo_utils import RESULTS_DIR, detect_and_save, get_model, resolve_weights_path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
-app = Flask(__name__, template_folder=str(TEMPLATE_DIR))
+WEB_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = WEB_ROOT.parent
+DEFAULT_WEIGHTS_PATH = "runs/fruit_detector_v2/weights/best.pt"
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
-UPLOAD_DIR = PROJECT_ROOT / "web" / "uploads"
-RESULT_DIR = PROJECT_ROOT / "web" / "results"
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-INFERENCE_IMAGE_SIZE = 896
-
-
-def allowed_file(filename: str) -> bool:
-    # Limit uploads to image extensions expected by the inference pipeline.
-    return Path(filename).suffix.lower() in ALLOWED_EXTENSIONS
+app = Flask(__name__, template_folder="templates")
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB upload size limit.
 
 
 def ensure_dirs() -> None:
-    # Runtime directories are created lazily to keep setup friction low.
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-@app.route("/", methods=["GET", "POST"])
+def is_allowed_file(filename: str) -> bool:
+    suffix = Path(filename).suffix.lower()
+    return suffix in ALLOWED_EXTENSIONS
+
+
+@app.route("/.well-known/appspecific/com.chrome.devtools.json")
+def chrome_devtools_manifest() -> tuple[dict[str, str], int]:
+    return {}, 200
+
+
+@app.route("/", methods=["GET"])
 def index():
-    error = None
-    results: list[dict[str, Any]] = []
-    weights_path = None
-
-    if request.method == "POST":
-        ensure_dirs()
-        # Keep only files that are actually present and have a filename.
-        files = [file for file in request.files.getlist("images") if file and file.filename]
-
-        if not files:
-            error = "Please choose at least one image."
-        else:
-            invalid_files = [
-                (file.filename or "")
-                for file in files
-                if not allowed_file(file.filename or "")
-            ]
-            if invalid_files:
-                error = "Only jpg, jpeg, png, bmp, and webp files are supported."
-            else:
-                upload_paths: list[Path] = []
-                uploaded_meta: list[dict[str, str]] = []
-                for file in files:
-                    # Use secure + unique names to avoid collisions and path injection issues.
-                    raw_name = file.filename or ""
-                    safe_name = secure_filename(raw_name)
-                    unique_name = f"{uuid.uuid4().hex}_{safe_name}"
-                    upload_path = UPLOAD_DIR / unique_name
-                    file.save(upload_path)
-                    upload_paths.append(upload_path)
-                    uploaded_meta.append(
-                        {
-                            "original_name": raw_name,
-                            "safe_name": safe_name,
-                        }
-                    )
-
-                try:
-                    weights_path = find_best_weights()
-                    # Run batch inference and map each prediction back to uploaded metadata.
-                    batch_predictions = run_predictions(
-                        image_paths=upload_paths,
-                        weights_path=weights_path,
-                        output_dir=RESULT_DIR,
-                        imgsz=INFERENCE_IMAGE_SIZE,
-                    )
-                    for meta, prediction in zip(uploaded_meta, batch_predictions):
-                        saved_path = prediction.get("saved_path")
-                        results.append(
-                            {
-                                "original_name": meta["original_name"],
-                                "safe_name": meta["safe_name"],
-                                "detections": prediction["detections"],
-                                "image_url": (
-                                    url_for("result_file", filename=saved_path.name)
-                                    if saved_path is not None
-                                    else None
-                                ),
-                            }
-                        )
-                except Exception as exc:
-                    # Keep UI error simple/actionable instead of exposing traceback details.
-                    error = str(exc)
-
     return render_template(
         "index.html",
-        error=error,
-        results=results,
-        weights_path=str(weights_path) if weights_path else None,
+        error_message=None,
+        results=[],
+        used_weights=DEFAULT_WEIGHTS_PATH,
     )
 
 
-@app.route("/results/<path:filename>")
-def result_file(filename: str):
-    from flask import send_from_directory
-
-    # Serve generated result images from the dedicated results directory.
-    return send_from_directory(RESULT_DIR.resolve(), filename)
-
-
-if __name__ == "__main__":
+@app.route("/predict", methods=["POST"])
+def predict():
     ensure_dirs()
-    app.run(debug=True)
+
+    uploaded_files = [
+        file
+        for file in request.files.getlist("image")
+        if file is not None and file.filename
+    ]
+    if not uploaded_files:
+        return render_template(
+            "index.html",
+            error_message="請先選擇至少一張圖片再送出。",
+            results=[],
+            used_weights=DEFAULT_WEIGHTS_PATH,
+        ), 400
+
+    invalid_files = [file.filename for file in uploaded_files if not is_allowed_file(file.filename)]
+    if invalid_files:
+        return render_template(
+            "index.html",
+            error_message="只支援 jpg/jpeg/png/webp/bmp 格式。",
+            results=[],
+            used_weights=DEFAULT_WEIGHTS_PATH,
+        ), 400
+
+    requested_weights = request.form.get("weights_path", "").strip() or DEFAULT_WEIGHTS_PATH
+
+    try:
+        weights_path = resolve_weights_path(requested_weights)
+        model = get_model(weights_path)
+        results_payload: list[dict[str, object]] = []
+
+        for uploaded_file in uploaded_files:
+            temp_file_path: Path | None = None
+            try:
+                suffix = Path(secure_filename(uploaded_file.filename)).suffix.lower() or ".jpg"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                    uploaded_file.save(temp_file)
+                    temp_file_path = Path(temp_file.name).resolve()
+
+                result_image_path, detections = detect_and_save(model, temp_file_path, RESULTS_DIR)
+                results_payload.append(
+                    {
+                        "source_name": uploaded_file.filename,
+                        "result_image_url": f"/results/{result_image_path.name}",
+                        "detections": detections,
+                    }
+                )
+            finally:
+                if temp_file_path and temp_file_path.exists():
+                    temp_file_path.unlink(missing_ok=True)
+
+        return render_template(
+            "index.html",
+            error_message=None,
+            results=results_payload,
+            used_weights=str(weights_path.relative_to(PROJECT_ROOT)),
+        )
+    except ValueError:
+        return render_template(
+            "index.html",
+            error_message="權重路徑格式不正確。",
+            results=[],
+            used_weights=requested_weights,
+        ), 400
+    except FileNotFoundError as exc:
+        return render_template(
+            "index.html",
+            error_message=str(exc),
+            results=[],
+            used_weights=requested_weights,
+        ), 400
+    except Exception:
+        return render_template(
+            "index.html",
+            error_message="圖片檢測失敗，請確認模型與輸入圖片後再試一次。",
+            results=[],
+            used_weights=requested_weights,
+        ), 500
+
+
+@app.route("/results/<path:filename>", methods=["GET"])
+def serve_result_image(filename: str):
+    return send_from_directory(RESULTS_DIR, filename)
