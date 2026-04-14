@@ -20,8 +20,8 @@ pip install -r requirements.txt
 # 切換資料集（例如 dataset_fruit262）:
 python train.py --dataset dataset_fruit-detector
 
-# 圖片推論:
-python predict.py --image test_image/your_image.jpg
+# 復原訓練模型流程
+yolo train resume model=runs/fruit_detector_v2/weights/last.pt
 ```
 
 ## 資料集準備

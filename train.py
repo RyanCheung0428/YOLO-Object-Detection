@@ -2,26 +2,95 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
-from web.yolo_utils import (
-    get_training_device,
-    load_yolo,
-    prepare_data_yaml,
-    print_dataset_summary,
-)
+import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 # Default training configuration used by CLI unless overridden.
 DEFAULT_DATASET_NAME = "dataset"
 DEFAULT_DATA_YAML_NAME = "data.yaml"
-DEFAULT_MODEL = "yolo11m.pt"
+DEFAULT_MODEL = "yolo11m.pt"  # Can be overridden with local path or other model name.
 EPOCHS = 300
 IMAGE_SIZE = 896
 BATCH_SIZE = 12
 WORKERS = 12
 PATIENCE = 50
 CACHE_MODE = "disk"  # Options: 'ram', 'disk', False
-RUN_NAME = "runs/fruit_detector_v2"
+RUN_NAME = "runs/fruit_detector_v3"
+
+
+def load_yolo():
+    # Import lazily so CLI help still works even before dependencies are installed.
+    try:
+        from ultralytics import YOLO
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "Missing dependency: ultralytics\n"
+            "Install it with: pip install -r requirements.txt"
+        ) from exc
+    return YOLO
+
+
+def get_training_device() -> str:
+    # Prefer CUDA when available; otherwise continue on CPU with explicit messaging.
+    try:
+        import torch
+    except ModuleNotFoundError:
+        print("PyTorch not found. Training will run only after installing dependencies.")
+        return "cpu"
+
+    if torch.cuda.is_available():
+        device_name = torch.cuda.get_device_name(0)
+        print(f"Using GPU: {device_name} (cuda:0)")
+        return "cuda:0"
+
+    print("CUDA is not available. Falling back to CPU.")
+    return "cpu"
+
+
+def prepare_data_yaml(data_yaml: Path) -> Path:
+    # Normalize split paths into an absolute data.local.yaml for robust training runs.
+    resolved_yaml = data_yaml if data_yaml.is_absolute() else (PROJECT_ROOT / data_yaml)
+    resolved_yaml = resolved_yaml.resolve()
+
+    with resolved_yaml.open("r", encoding="utf-8") as file:
+        config: dict[str, Any] = yaml.safe_load(file)
+
+    dataset_root = resolved_yaml.parent
+    split_dirs = {"train": "train", "val": "valid", "test": "test"}
+
+    def resolve_split(split_name: str) -> Any:
+        raw_value = config.get(split_name)
+        if not raw_value:
+            return raw_value
+        candidate = (dataset_root / raw_value).resolve()
+        if candidate.exists():
+            return str(candidate)
+        # Fallback keeps compatibility with common train/valid/test folder layouts.
+        fallback_dir = split_dirs.get(split_name, split_name)
+        return str((dataset_root / fallback_dir / "images").resolve())
+
+    normalized = dict(config)
+    normalized["train"] = resolve_split("train")
+    normalized["val"] = resolve_split("val")
+    normalized["test"] = resolve_split("test")
+
+    generated_yaml = dataset_root / "data.local.yaml"
+    with generated_yaml.open("w", encoding="utf-8") as file:
+        yaml.safe_dump(normalized, file, allow_unicode=False, sort_keys=False)
+
+    return generated_yaml
+
+
+def print_dataset_summary(data_yaml: Path) -> None:
+    # Print class index mapping to make training logs easier to validate.
+    with data_yaml.open("r", encoding="utf-8") as file:
+        config = yaml.safe_load(file)
+
+    print("Dataset classes:")
+    for index, name in enumerate(config.get("names", [])):
+        print(f"  {index}: {name}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -81,7 +150,7 @@ def resolve_model_source(model_name_or_path: str) -> str:
 
 
 def train_and_validate(data_yaml: Path, model_source: str) -> tuple[Path, Path]:
-    # Shared utility handles optional dependency import with actionable errors.
+    # Handles optional dependency import with actionable errors.
     YOLO = load_yolo()
     normalized_yaml = prepare_data_yaml(data_yaml)
     device = get_training_device()
