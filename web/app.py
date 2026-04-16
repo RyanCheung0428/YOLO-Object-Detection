@@ -10,7 +10,7 @@ from .yolo_utils import RESULTS_DIR, detect_and_save, get_model, resolve_weights
 
 WEB_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = WEB_ROOT.parent
-DEFAULT_WEIGHTS_PATH = "runs/fruit_detector_v2/weights/best.pt"
+DEFAULT_WEIGHTS_PATH = "runs/fruit_detector/weights/best.pt"
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
 app = Flask(__name__, template_folder="templates")
