@@ -7,6 +7,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WEB_ROOT = Path(__file__).resolve().parent
 RESULTS_DIR = WEB_ROOT / "results"
+WEIGHTS_PATH = (PROJECT_ROOT / "runs" / "fruit_detector" / "weights" / "best.pt").resolve()
 
 _model_cache: Any | None = None
 _model_path_cache: Path | None = None
@@ -22,36 +23,6 @@ def load_yolo() -> Any:
             "Install it with: pip install -r requirements.txt"
         ) from exc
     return YOLO
-
-
-def resolve_weights_path(explicit_path: str | None = None) -> Path:
-    if explicit_path:
-        explicit_candidate = Path(explicit_path)
-        if not explicit_candidate.is_absolute():
-            explicit_candidate = (PROJECT_ROOT / explicit_candidate).resolve()
-        if explicit_candidate.exists():
-            return explicit_candidate
-
-    preferred = (PROJECT_ROOT / "runs" / "fruit_detector" / "weights" / "best.pt").resolve()
-    if preferred.exists():
-        return preferred
-
-    runs_root = (PROJECT_ROOT / "runs").resolve()
-    if runs_root.exists():
-        best_files = sorted(
-            runs_root.glob("**/best.pt"),
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
-        )
-        if best_files:
-            return best_files[0].resolve()
-
-    raise FileNotFoundError(
-        "Could not find model weights. Expected one of:\n"
-        "1) runs/fruit_detector/weights/best.pt\n"
-        "2) newest best.pt under runs/\n"
-        "You can also provide a custom path in the web form."
-    )
 
 
 def get_model(weights_path: Path) -> Any:

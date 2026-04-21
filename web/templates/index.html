@@ -1,196 +1,386 @@
-<!doctype html>
-<html lang="zh-Hant">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>YOLOv8 Fruit Detector</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Object Detection</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg: #f5efe4;
-            --panel: #fffaf1;
-            --ink: #1e1e1e;
-            --accent: #d96c06;
-            --accent-dark: #9e4e04;
-            --border: #e7d8be;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --container-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --error-bg: #fef2f2;
+            --error-text: #dc2626;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
         body {
-            margin: 0;
-            font-family: "Segoe UI", Arial, sans-serif;
-            background:
-                radial-gradient(circle at top left, #fff1cf 0%, transparent 28%),
-                linear-gradient(135deg, #f8f1e6 0%, #efe1c5 100%);
-            color: var(--ink);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .header-top {
+            position: fixed;
+            top: 0;
+            left: 0;
+            padding: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .header-top h1 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: var(--primary);
+            text-transform: uppercase;
         }
 
         .page {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 32px 20px 56px;
+            width: 100%;
+            max-width: 500px;
+            background: var(--container-bg);
+            border-radius: var(--radius-lg);
+            padding: 48px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            text-align: center;
         }
 
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: 0 18px 50px rgba(70, 40, 10, 0.08);
+        .user-greeting {
+            display: inline-flex;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 8px 16px;
+            border-radius: 30px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--primary);
+            border: 1px solid var(--border-color);
         }
 
-        h1, h2 { margin-top: 0; }
+        .upload-section h2 {
+            margin: 0 0 12px;
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+        }
 
-        p { line-height: 1.6; }
+        .upload-section p.subtitle {
+            color: var(--text-muted);
+            margin-top: 0;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
 
-        form {
+        .dropzone {
+            position: relative;
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 50px 20px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: #fcfcfd;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--primary);
+            background-color: #f5f7ff;
+            transform: scale(1.01);
+        }
+
+        .dropzone-icon {
+            font-size: 56px;
+            margin-bottom: 20px;
+            color: var(--primary);
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .dropzone-text {
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 8px;
+            pointer-events: none;
+        }
+
+        .dropzone-subtext {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0 !important;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .selected-files {
+            margin-top: 32px;
+            text-align: left;
+            display: none;
+        }
+
+        .selected-files.active {
+            display: block;
+        }
+
+        .selected-files-title {
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .file-chips-container {
             display: grid;
             grid-template-columns: 1fr;
             gap: 12px;
-            margin-top: 20px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 2px;
         }
 
-        .field-label {
+        .file-chips-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .file-chips-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .file-chips-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .file-chip {
+            display: flex;
+            align-items: center;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
             font-size: 0.95rem;
-            color: #5b5347;
-            margin-bottom: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
         }
 
-        input[type="file"],
-        input[type="text"] {
-            width: 100%;
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px;
-            font-size: 0.95rem;
+        .file-chip-icon {
+            margin-right: 16px;
+            color: var(--primary);
+            background: #eef2ff;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
         }
 
-        button {
+        .file-chip-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        .file-chip-name {
+            font-weight: 600;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-chip-size {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .submit-btn {
             border: none;
-            border-radius: 12px;
-            padding: 12px 18px;
-            background: var(--accent);
+            border-radius: var(--radius-md);
+            padding: 18px 32px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
             color: white;
-            font-size: 1rem;
+            font-size: 1.1rem;
+            font-weight: 700;
             cursor: pointer;
-            width: fit-content;
+            width: 100%;
+            margin-top: 32px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
         }
 
-        button:hover { background: var(--accent-dark); }
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .submit-btn:disabled {
+            background: #e2e8f0;
+            color: #94a3b8;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
 
         .error {
-            margin-top: 16px;
-            padding: 12px 14px;
-            border-radius: 12px;
-            background: #ffe2df;
-            color: #8c241d;
-        }
-
-        .results {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 20px;
             margin-top: 24px;
-        }
-
-        .card {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 18px;
             padding: 16px;
-            box-shadow: 0 10px 30px rgba(70, 40, 10, 0.06);
-        }
-
-        .card img {
-            max-width: 100%;
-            width: auto;
-            height: auto;
-            border-radius: 14px;
-            border: 1px solid var(--border);
-            display: block;
-            margin: 0 auto;
-        }
-
-        .meta {
-            margin: 10px 0 0;
-            color: #5b5347;
-            font-size: 0.95rem;
-        }
-
-        ul {
-            margin: 12px 0 0;
-            padding-left: 18px;
-        }
-
-        .empty {
-            margin-top: 24px;
-            color: #5b5347;
-        }
-
-        @media (max-width: 1024px) {
-            .results {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-
-        @media (max-width: 680px) {
-            .results {
-                grid-template-columns: 1fr;
-            }
+            border-radius: var(--radius-md);
+            background: var(--error-bg);
+            color: var(--error-text);
+            font-weight: 600;
+            border-left: 4px solid var(--error-text);
+            text-align: left;
         }
     </style>
 </head>
 <body>
     <div class="page">
-        <div class="panel">
-            <h1>YOLOv8 Fruit Detector</h1>
-            <p>上傳一張或多張圖片，系統會使用已訓練模型進行水果偵測並顯示結果。</p>
+        <div class="upload-section">
+            <div class="user-greeting">
+                <i class="fas fa-user-circle" style="margin-right: 8px;"></i>
+                Hello, Cheung Wang Yan!
+            </div>
+            
+            <h2>Object Detection</h2>
+            <p class="subtitle">Upload images to identify and locate objects using our advanced YOLOv11 model.</p>
 
-            <form action="/predict" method="post" enctype="multipart/form-data">
-                <label class="field-label" for="image">選擇圖片（可多選）</label>
-                <input id="image" type="file" name="image" accept=".jpg,.jpeg,.png,.bmp,.webp" multiple required>
+            <form action="/predict" method="post" enctype="multipart/form-data" id="upload-form">
+                <div class="dropzone" id="dropzone">
+                    <div class="dropzone-icon">
+                        <i class="fas fa-cloud-arrow-up"></i>
+                    </div>
+                    <div class="dropzone-text">Click or drag images here</div>
+                    <div class="dropzone-subtext">Supports JPG, PNG, WEBP (Multiple)</div>
+                    <input id="image-input" type="file" name="image" accept=".jpg,.jpeg,.png,.bmp,.webp" multiple required>
+                </div>
+                
+                <div id="selected-files" class="selected-files">
+                    <div class="selected-files-title">Selected Files</div>
+                    <div id="file-chips" class="file-chips-container"></div>
+                </div>
 
-                <label class="field-label" for="weights_path">模型權重路徑（可選）</label>
-                <input
-                    id="weights_path"
-                    type="text"
-                    name="weights_path"
-                    value="{{ used_weights }}"
-                    placeholder="runs/fruit_detector/weights/best.pt">
-
-                <button type="submit">Run Detection</button>
+                <button type="submit" class="submit-btn" id="submit-btn" disabled>
+                    <i class="fas fa-bolt"></i>
+                    Start Detection
+                </button>
             </form>
 
             {% if error_message %}
-            <div class="error">{{ error_message }}</div>
-            {% endif %}
-
-            {% if results %}
-            <div class="results">
-                {% for result in results %}
-                <section class="card">
-                    <h2>{{ result.source_name }}</h2>
-                    {% if result.result_image_url %}
-                    <img src="{{ result.result_image_url }}" alt="Prediction result">
-                    {% endif %}
-
-                    {% if result.detections %}
-                    <ul>
-                        {% for item in result.detections %}
-                        <li>{{ item.class }} | confidence={{ item.confidence }}</li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <p class="meta">No objects detected.</p>
-                    {% endif %}
-                </section>
-                {% endfor %}
+            <div class="error">
+                <i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i>
+                {{ error_message }}
             </div>
-            {% else %}
-            <p class="empty">No results yet. Choose one or more images and submit the form.</p>
             {% endif %}
         </div>
     </div>
+
+    <script>
+        const fileInput = document.getElementById('image-input');
+        const fileChips = document.getElementById('file-chips');
+        const selectedFilesDiv = document.getElementById('selected-files');
+        const submitBtn = document.getElementById('submit-btn');
+        const dropzone = document.getElementById('dropzone');
+        const form = document.getElementById('upload-form');
+
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + ['Bytes', 'KB', 'MB'][i];
+        }
+
+        function updateUI() {
+            const files = Array.from(fileInput.files);
+            fileChips.innerHTML = '';
+            
+            if (files.length > 0) {
+                files.forEach(file => {
+                    const chip = document.createElement('div');
+                    chip.className = 'file-chip';
+                    chip.innerHTML = `
+                        <div class="file-chip-icon"><i class="fas fa-image"></i></div>
+                        <div class="file-chip-info">
+                            <span class="file-chip-name" title="${file.name}">${file.name}</span>
+                            <span class="file-chip-size">${formatSize(file.size)}</span>
+                        </div>
+                        <div style="color: #10b981; margin-left: auto;"><i class="fas fa-check-circle"></i></div>
+                    `;
+                    fileChips.appendChild(chip);
+                });
+                selectedFilesDiv.style.display = 'block';
+                submitBtn.disabled = false;
+            } else {
+                selectedFilesDiv.style.display = 'none';
+                submitBtn.disabled = true;
+            }
+        }
+
+        fileInput.addEventListener('change', updateUI);
+
+        ['dragover'].forEach(n => dropzone.addEventListener(n, (e) => {
+            e.preventDefault(); 
+            dropzone.style.borderColor = 'var(--primary)';
+            dropzone.classList.add('dragover');
+        }));
+        ['dragleave', 'drop'].forEach(n => dropzone.addEventListener(n, () => {
+             dropzone.style.borderColor = 'var(--border-color)';
+             dropzone.classList.remove('dragover');
+        }));
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                updateUI();
+            }
+        });
+
+        form.addEventListener('submit', () => {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Analyzing...';
+        });
+    </script>
 </body>
 </html>

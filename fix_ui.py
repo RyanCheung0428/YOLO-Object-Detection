@@ -1,0 +1,674 @@
+import os
+
+def write_index():
+    content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Object Detection</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --container-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --error-bg: #fef2f2;
+            --error-text: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .header-top {
+            position: fixed;
+            top: 0;
+            left: 0;
+            padding: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .header-top h1 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        .page {
+            width: 100%;
+            max-width: 500px;
+            background: var(--container-bg);
+            border-radius: var(--radius-lg);
+            padding: 48px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            text-align: center;
+        }
+
+        .user-greeting {
+            display: inline-flex;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 8px 16px;
+            border-radius: 30px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .upload-section h2 {
+            margin: 0 0 12px;
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+        }
+
+        .upload-section p.subtitle {
+            color: var(--text-muted);
+            margin-top: 0;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .dropzone {
+            position: relative;
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 50px 20px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: #fcfcfd;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--primary);
+            background-color: #f5f7ff;
+            transform: scale(1.01);
+        }
+
+        .dropzone-icon {
+            font-size: 56px;
+            margin-bottom: 20px;
+            color: var(--primary);
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .dropzone-text {
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 8px;
+            pointer-events: none;
+        }
+
+        .dropzone-subtext {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0 !important;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .selected-files {
+            margin-top: 32px;
+            text-align: left;
+            display: none;
+        }
+
+        .selected-files.active {
+            display: block;
+        }
+
+        .selected-files-title {
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .file-chips-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 2px;
+        }
+
+        .file-chips-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .file-chips-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .file-chips-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .file-chip {
+            display: flex;
+            align-items: center;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .file-chip-icon {
+            margin-right: 16px;
+            color: var(--primary);
+            background: #eef2ff;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+        }
+
+        .file-chip-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        .file-chip-name {
+            font-weight: 600;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-chip-size {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .submit-btn {
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 18px 32px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 32px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .submit-btn:disabled {
+            background: #e2e8f0;
+            color: #94a3b8;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .error {
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: var(--radius-md);
+            background: var(--error-bg);
+            color: var(--error-text);
+            font-weight: 600;
+            border-left: 4px solid var(--error-text);
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-top">
+        <i class="fas fa-apple-alt" style="color: var(--primary); font-size: 1.5rem;"></i>
+        <h1>Fruit.AI</h1>
+    </div>
+
+    <div class="page">
+        <div class="upload-section">
+            <div class="user-greeting">
+                <i class="fas fa-user-circle" style="margin-right: 8px;"></i>
+                Hello, Cheung Wang Yan!
+            </div>
+            
+            <h2>Object Detection</h2>
+            <p class="subtitle">Upload images to identify and locate objects using our advanced YOLOv11 model.</p>
+
+            <form action="/predict" method="post" enctype="multipart/form-data" id="upload-form">
+                <div class="dropzone" id="dropzone">
+                    <div class="dropzone-icon">
+                        <i class="fas fa-cloud-arrow-up"></i>
+                    </div>
+                    <div class="dropzone-text">Click or drag images here</div>
+                    <div class="dropzone-subtext">Supports JPG, PNG, WEBP (Multiple)</div>
+                    <input id="image-input" type="file" name="image" accept=".jpg,.jpeg,.png,.bmp,.webp" multiple required>
+                </div>
+                
+                <div id="selected-files" class="selected-files">
+                    <div class="selected-files-title">Selected Files</div>
+                    <div id="file-chips" class="file-chips-container"></div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submit-btn" disabled>
+                    <i class="fas fa-bolt"></i>
+                    Start Detection
+                </button>
+            </form>
+
+            {% if error_message %}
+            <div class="error">
+                <i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i>
+                {{ error_message }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('image-input');
+        const fileChips = document.getElementById('file-chips');
+        const selectedFilesDiv = document.getElementById('selected-files');
+        const submitBtn = document.getElementById('submit-btn');
+        const dropzone = document.getElementById('dropzone');
+        const form = document.getElementById('upload-form');
+
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + ['Bytes', 'KB', 'MB'][i];
+        }
+
+        function updateUI() {
+            const files = Array.from(fileInput.files);
+            fileChips.innerHTML = '';
+            
+            if (files.length > 0) {
+                files.forEach(file => {
+                    const chip = document.createElement('div');
+                    chip.className = 'file-chip';
+                    chip.innerHTML = `
+                        <div class="file-chip-icon"><i class="fas fa-image"></i></div>
+                        <div class="file-chip-info">
+                            <span class="file-chip-name" title="${file.name}">${file.name}</span>
+                            <span class="file-chip-size">${formatSize(file.size)}</span>
+                        </div>
+                        <div style="color: #10b981; margin-left: auto;"><i class="fas fa-check-circle"></i></div>
+                    `;
+                    fileChips.appendChild(chip);
+                });
+                selectedFilesDiv.style.display = 'block';
+                submitBtn.disabled = false;
+            } else {
+                selectedFilesDiv.style.display = 'none';
+                submitBtn.disabled = true;
+            }
+        }
+
+        fileInput.addEventListener('change', updateUI);
+
+        ['dragover'].forEach(n => dropzone.addEventListener(n, (e) => {
+            e.preventDefault(); 
+            dropzone.style.borderColor = 'var(--primary)';
+            dropzone.classList.add('dragover');
+        }));
+        ['dragleave', 'drop'].forEach(n => dropzone.addEventListener(n, () => {
+             dropzone.style.borderColor = 'var(--border-color)';
+             dropzone.classList.remove('dragover');
+        }));
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                updateUI();
+            }
+        });
+
+        form.addEventListener('submit', () => {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Analyzing...';
+        });
+    </script>
+</body>
+</html>"""
+    
+    with open('web/templates/index.html', 'w', encoding='utf-8') as f:
+        f.write(content)
+
+def write_results():
+    content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Object Detection - Results</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --container-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 40px 20px 80px;
+        }
+
+        .header-top {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo h1 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        .btn-back {
+            text-decoration: none;
+            background: var(--primary);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+        }
+
+        .btn-back:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 80px auto 0;
+        }
+
+        .results-info {
+            margin-bottom: 32px;
+        }
+
+        .results-info h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            margin-bottom: 8px;
+        }
+
+        .results-info p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 32px;
+        }
+
+        .card {
+            background: var(--container-bg);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+        }
+
+        .card-img {
+            aspect-ratio: 4/3;
+            background: #f1f5f9;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 12px;
+        }
+
+        .card-body {
+            padding: 24px;
+            flex-grow: 1;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-main);
+        }
+
+        .detection-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .detection-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: 12px;
+        }
+
+        .class-name {
+            font-weight: 600;
+            color: var(--text-main);
+            text-transform: capitalize;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .class-name::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+
+        .confidence {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--primary);
+            background: #eef2ff;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .no-detections {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        @media (max-width: 640px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            .header-top {
+                padding: 15px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header-top">
+        <div class="logo">
+            <i class="fas fa-apple-alt" style="color: var(--primary); font-size: 1.25rem;"></i>
+            <h1>Fruit.AI</h1>
+        </div>
+        <a href="/" class="btn-back">
+            <i class="fas fa-arrow-left"></i>
+            Upload More
+        </a>
+    </header>
+
+    <main class="container">
+        <div class="results-info">
+            <h2>Analysis Summary</h2>
+            <p>Processed {{ results|length }} image{{ 's' if results|length > 1 else '' }} successfully.</p>
+        </div>
+
+        <div class="results-grid">
+            {% for result in results %}
+            <article class="card">
+                <div class="card-img">
+                    {% if result.result_image_url %}
+                    <img src="{{ result.result_image_url }}" alt="{{ result.source_name }}">
+                    {% else %}
+                    <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+                        <i class="fas fa-image" style="font-size: 3rem; opacity: 0.3;"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <h3 class="card-title" title="{{ result.source_name }}">{{ result.source_name }}</h3>
+                    
+                    {% if result.detections %}
+                    <div class="detection-list">
+                        {% for item in result.detections %}
+                        <div class="detection-item">
+                            <span class="class-name">{{ item.class }}</span>
+                            <span class="confidence">{{ (item.confidence * 100)|round(1) }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="no-detections">
+                        <i class="fas fa-search" style="margin-right: 8px;"></i>
+                        No objects found
+                    </div>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </main>
+</body>
+</html>"""
+    
+    with open('web/templates/results.html', 'w', encoding='utf-8') as f:
+        f.write(content)
+
+if __name__ == '__main__':
+    write_index()
+    write_results()

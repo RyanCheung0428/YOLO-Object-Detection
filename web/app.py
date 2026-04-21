@@ -6,11 +6,9 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from werkzeug.utils import secure_filename
 
-from .yolo_utils import RESULTS_DIR, detect_and_save, get_model, resolve_weights_path
+from .yolo_utils import RESULTS_DIR, WEIGHTS_PATH, detect_and_save, get_model
 
 WEB_ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = WEB_ROOT.parent
-DEFAULT_WEIGHTS_PATH = "runs/fruit_detector/weights/best.pt"
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
 app = Flask(__name__, template_folder="templates")
@@ -37,7 +35,6 @@ def index():
         "index.html",
         error_message=None,
         results=[],
-        used_weights=DEFAULT_WEIGHTS_PATH,
     )
 
 
@@ -53,25 +50,23 @@ def predict():
     if not uploaded_files:
         return render_template(
             "index.html",
-            error_message="請先選擇至少一張圖片再送出。",
+            error_message="Please choose at least one image before submitting.",
             results=[],
-            used_weights=DEFAULT_WEIGHTS_PATH,
         ), 400
 
     invalid_files = [file.filename for file in uploaded_files if not is_allowed_file(file.filename)]
     if invalid_files:
         return render_template(
             "index.html",
-            error_message="只支援 jpg/jpeg/png/webp/bmp 格式。",
+            error_message="Only jpg/jpeg/png/webp/bmp files are supported.",
             results=[],
-            used_weights=DEFAULT_WEIGHTS_PATH,
         ), 400
 
-    requested_weights = request.form.get("weights_path", "").strip() or DEFAULT_WEIGHTS_PATH
-
     try:
-        weights_path = resolve_weights_path(requested_weights)
-        model = get_model(weights_path)
+        if not WEIGHTS_PATH.exists():
+            raise FileNotFoundError("Could not find model weights at runs/fruit_detector/weights/best.pt.")
+
+        model = get_model(WEIGHTS_PATH)
         results_payload: list[dict[str, object]] = []
 
         for uploaded_file in uploaded_files:
@@ -95,31 +90,21 @@ def predict():
                     temp_file_path.unlink(missing_ok=True)
 
         return render_template(
-            "index.html",
+            "results.html",
             error_message=None,
             results=results_payload,
-            used_weights=str(weights_path.relative_to(PROJECT_ROOT)),
         )
-    except ValueError:
-        return render_template(
-            "index.html",
-            error_message="權重路徑格式不正確。",
-            results=[],
-            used_weights=requested_weights,
-        ), 400
     except FileNotFoundError as exc:
         return render_template(
             "index.html",
             error_message=str(exc),
             results=[],
-            used_weights=requested_weights,
         ), 400
     except Exception:
         return render_template(
             "index.html",
-            error_message="圖片檢測失敗，請確認模型與輸入圖片後再試一次。",
+            error_message="Image detection failed. Please check the model and input images, then try again.",
             results=[],
-            used_weights=requested_weights,
         ), 500
 
 
